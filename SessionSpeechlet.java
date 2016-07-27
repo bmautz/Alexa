@@ -1,9 +1,6 @@
 package session;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.PrintWriter;
+import java.io.*;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -38,6 +35,11 @@ import org.jivesoftware.smack.packet.Message;
 import org.jivesoftware.smack.tcp.XMPPTCPConnection;
 import org.jivesoftware.smack.tcp.XMPPTCPConnectionConfiguration;
 
+import net.maritimecloud.internal.core.javax.json.Json;
+import net.maritimecloud.internal.core.javax.json.JsonBuilderFactory;
+import net.maritimecloud.internal.core.javax.json.JsonObject;
+import net.maritimecloud.internal.core.javax.json.stream.JsonParser;
+
 /**
  * This sample shows how to create a simple speechlet for handling intent requests and managing
  * session interactions.
@@ -58,6 +60,11 @@ public class SessionSpeechlet implements Speechlet
     private static  String CHANNEL_KEY = "0";
     private static final String  CHANNEL_SLOT = "Channel";
 
+    private static  String CHANNELINFO_KEY = "0";
+    private static final String  CHANNELINFO_SLOT = "ChannelInfo";
+
+    String AspeechText;
+    String ArepromptText;
     XMPPTCPConnection mConnection;
     ChatManager chatManager;
     String userJID = "user1@ec2-54-152-188-80.compute-1.amazonaws.com/Smack";
@@ -141,6 +148,11 @@ public class SessionSpeechlet implements Speechlet
         else if("ChangeChannel".equals(intentName))
         {
             return changeChannelinSession(intent, session);
+        }
+
+        else if("GetChannelInfo".equals(intentName))
+        {
+            return getChannelInfoinSession(intent, session);
         }
 
         else if("GetVersion".equals(intentName))
@@ -260,7 +272,7 @@ public class SessionSpeechlet implements Speechlet
         else
         {
             // Render an error since we don't know what the users favorite color is.
-            speechText = "I'm not sure what type of playlist you are looking for, please try again. playlist types lot was null";
+            speechText = "I'm not sure what type of playlist you are looking for, please try again. playlist type slot was null";
             repromptText =
                     "I'm not sure what type of playlist you are looking for, please try again";
         }
@@ -309,6 +321,11 @@ public class SessionSpeechlet implements Speechlet
         String channelNum = channelSlot.getValue();
         String speechText, repromptText;
 
+        String http = "http://";
+        String portCommand = ":8080/tv/tune?major=";
+        String infoCommand = ":8080/tv/getProgInfo?major=";
+        String ip = "192.168.1.134";
+
         // Check for favorite color and create output to user.
         if (!channelNum.equals("0"))
         {
@@ -356,9 +373,105 @@ public class SessionSpeechlet implements Speechlet
             };
 
             Chat chat = chatManager.createChat(userJID, "alexa", chatListener);
+            String fullUrl = http + ip + portCommand + channelNum;
             try
             {
-                chat.sendMessage(channelNum);
+                chat.sendMessage(fullUrl);
+            }
+            catch(SmackException.NotConnectedException e)
+            {
+                System.out.println("Not connected");
+            }
+
+            System.out.println(chat.toString());
+
+            mConnection.disconnect();
+
+            speechText =
+                    String.format("Changing channel to channel %s", channelNum);
+            repromptText = String.format(
+                    "We are now on the channel %s", channelNum);
+
+        }
+
+        else
+        {
+            // Render an error since we don't know what the users favorite color is.
+            speechText = "Error not a valid channel";
+            repromptText =
+                    "Please pick a different channel to watch";
+        }
+        //assume user is now watching, end session
+        return getSpeechletResponse(speechText, repromptText, true);
+    }
+
+    //sixth and a 7/8 function, made by me
+    private SpeechletResponse getChannelInfoinSession(final Intent intent, final Session session)
+    {
+        // Get the slots from the intent.
+        Map<String, Slot> slots = intent.getSlots();
+
+        // Get the color slot from the list of slots.
+        Slot channelSlot = slots.get(CHANNELINFO_SLOT);
+        String channelNum = channelSlot.getValue();
+        String speechText, repromptText;
+
+        String http = "http://";
+        String portCommand = ":8080/tv/tune?major=";
+        String infoCommand = ":8080/tv/getProgInfo?major=";
+        String ip = "192.168.1.134";
+
+        // Check for favorite color and create output to user.
+        if (!channelNum.equals("0"))
+        {
+            CHANNELINFO_KEY = channelNum;
+
+            XMPPTCPConnectionConfiguration.Builder config = XMPPTCPConnectionConfiguration.builder();
+            config.setSecurityMode(ConnectionConfiguration.SecurityMode.disabled);
+            config.setServiceName("ec2-54-152-188-80.compute-1.amazonaws.com");
+            config.setHost("ec2-54-152-188-80.compute-1.amazonaws.com");
+            config.setPort(5222);
+
+            XMPPTCPConnection mConnection = new XMPPTCPConnection(config.build());
+
+            try
+            {
+                try
+                {
+                    try
+                    {
+                        mConnection.connect();
+                        mConnection.login("user2", "alexa1");  //also a login with no parameters //here is where issues
+                    }
+                    catch(XMPPException e)
+                    {
+                        System.out.println("login failed");
+                    }
+                }
+                catch (SmackException e)
+                {
+                    System.out.println("smack exception");
+                }
+            }
+            catch(IOException e)
+            {
+                System.out.println("connect failed");
+            }
+
+            ChatManager chatManager = ChatManager.getInstanceFor(mConnection);
+
+            ChatMessageListener chatListener = new ChatMessageListener() {
+                @Override
+                public void processMessage(Chat chat, Message message)
+                {
+                }
+            };
+
+            Chat chat = chatManager.createChat(userJID, "alexa", chatListener);
+            String fullUrl = http + ip + portCommand + channelNum;
+            try
+            {
+                chat.sendMessage(fullUrl);
             }
             catch(SmackException.NotConnectedException e)
             {
@@ -389,14 +502,156 @@ public class SessionSpeechlet implements Speechlet
 
     private SpeechletResponse getVersioninSession(final Intent intent, final Session session)
     {
-        Map<String, Slot> slots = intent.getSlots();
-        String speechText, repromptText;
-        speechText =
-                String.format("Getting set top box version information");
-        repromptText = String.format(
-                "Getting set top box version information");
 
-        return getSpeechletResponse(speechText, repromptText, true);
+        // Get the slots from the intent.
+        Map<String, Slot> slots = intent.getSlots();
+
+        // Get the color slot from the list of slots.
+        Slot channelSlot = slots.get(CHANNELINFO_SLOT);
+        String channelNum = channelSlot.getValue();
+        String speechText, repromptText;
+
+        String http = "http://";
+        String infoCommand = ":8080/tv/getProgInfo?major=";
+        String ip = "192.168.1.134";
+
+        if (!channelNum.equals("0"))
+        {
+            CHANNELINFO_KEY = channelNum;
+            speechText =
+                    String.format("Retrieving info for %s", channelNum);
+            repromptText = String.format(
+                    "we got info for %s", channelNum);
+
+            XMPPTCPConnectionConfiguration.Builder config = XMPPTCPConnectionConfiguration.builder();
+            config.setSecurityMode(ConnectionConfiguration.SecurityMode.disabled);
+            config.setServiceName("ec2-54-152-188-80.compute-1.amazonaws.com"); //"127.0.0.1" "10.0.2.2"
+            config.setHost("ec2-54-152-188-80.compute-1.amazonaws.com");
+            config.setPort(5222);
+
+            XMPPTCPConnection mConnection = new XMPPTCPConnection(config.build());
+
+            try {
+                try {
+                    try {
+                        mConnection.connect();
+                        mConnection.login("user2", "alexa1");  //also a login with no parameters //here is where issues
+                    } catch (XMPPException e) {
+                        System.out.println("login failed");
+                    }
+                } catch (SmackException e) {
+                    System.out.println("smack exception");
+                }
+            } catch (IOException e) {
+                System.out.println("connect failed");
+            }
+
+            ChatManager chatManager = ChatManager.getInstanceFor(mConnection);
+
+            ChatMessageListener chatListener = new ChatMessageListener()
+            {
+                @Override
+                public void processMessage(Chat chat, Message message)
+                {
+                    JsonParser parser3 = Json.createParser(new StringReader(message.getBody()));
+                    JsonParser.Event channelAns = parser3.next();
+
+                    String title = "";
+                    String show = "";
+
+                    while (parser3.hasNext() == true) {
+                        if (channelAns.toString().equals("KEY_NAME")) {
+                            title = parser3.getString();
+                            //System.out.println("Name is being set: " + name);
+                            if (title.equals("title")) {
+                                channelAns = parser3.next();
+                                show = parser3.getString();
+                                break;
+                            }
+
+                            channelAns = parser3.next();
+
+                        } else {
+                            channelAns = parser3.next();
+                        }
+                    }
+
+
+                    parser3 = Json.createParser(new StringReader(message.getBody()));
+                    channelAns = parser3.next();
+
+                    String episode = "";
+                    String epName = "";
+
+                    while (parser3.hasNext() == true)
+                    {
+                        if (channelAns.toString().equals("KEY_NAME")) {
+                            episode = parser3.getString();
+                            //System.out.println("Name is being set: " + name);
+                            if (episode.equals("episodeTitle")) {
+                                channelAns = parser3.next();
+                                epName = parser3.getString();
+                                break;
+                            }
+
+                            channelAns = parser3.next();
+
+                        } else {
+                            channelAns = parser3.next();
+                        }
+                    }
+
+                    if(epName.equals(""))
+                    {
+                        AspeechText = "Channel " + CHANNELINFO_KEY + " is now playing " + show;
+                        ArepromptText = "Channel " + CHANNELINFO_KEY + " is now playing " + show;
+                    }
+                    else
+                    {
+                        AspeechText = "Channel " + CHANNELINFO_KEY + " is now playing " + show + " episode " + epName;
+                        ArepromptText = "Channel " + CHANNELINFO_KEY + " is now playing " + show + " episode " + epName;
+                    }
+
+                }
+            };
+
+            Chat chat = chatManager.createChat(userJID, "alexa", chatListener);
+            String fullUrl = http + ip + infoCommand + channelNum;
+            try
+            {
+                chat.sendMessage(fullUrl);
+            }
+
+            catch (SmackException.NotConnectedException e)
+            {
+                System.out.println("Not connected");
+            }
+
+            System.out.println(chat.toString());
+
+            final long start = System.nanoTime();
+            while ((System.nanoTime() - start) / 1000000 < 2000) // do for 20 seconds
+            {
+                try {
+                    Thread.sleep(200);
+                }
+                catch(InterruptedException e)
+                {
+                    System.out.println("no thread sleep allowed");
+                }
+            }
+            mConnection.disconnect();
+        }
+
+        else
+        {
+            speechText = "Couldnt find information for your requested channel";
+            repromptText = "Couldnt find information for your requested channel";
+            return getSpeechletResponse(speechText, repromptText, true);
+        }
+
+        //assume user is now watching, end session
+        return getSpeechletResponse(AspeechText, ArepromptText, true);
 
     }
 
