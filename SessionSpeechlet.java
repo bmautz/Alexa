@@ -40,6 +40,11 @@ import net.maritimecloud.internal.core.javax.json.JsonBuilderFactory;
 import net.maritimecloud.internal.core.javax.json.JsonObject;
 import net.maritimecloud.internal.core.javax.json.stream.JsonParser;
 
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.lang.Thread;
+import java.net.*;
+
 /**
  * This sample shows how to create a simple speechlet for handling intent requests and managing
  * session interactions.
@@ -63,6 +68,13 @@ public class SessionSpeechlet implements Speechlet
     private static  String CHANNELINFO_KEY = "0";
     private static final String  CHANNELINFO_SLOT = "ChannelInfo";
 
+    private static String DVR_KEY = "NO";
+    private static final String DVR_SLOT = "Movielist";
+
+    private static String DVRPLAY_KEY = "NOPLAY";
+    private static final String DVRPLAY_SLOT = "Movieplaylist";
+
+
     String AspeechText;
     String ArepromptText;
     XMPPTCPConnection mConnection;
@@ -73,17 +85,9 @@ public class SessionSpeechlet implements Speechlet
     String thread = "alexa";
     ChatMessageListener chatListener;
 
-    //private static final String ID_KEY = "ID";
-    //private static final String ID_SLOT = "id";
-
-    //private static final String SUMMARY_KEY = "SUMMARY";
-    //private static final String SUMMARY_SLOT = "summary";
-
-    //private static final int SHOWNAME_KEY = "NAME";
-    //private static final int SHOWNAME_SLOT = "name";
-
-    //private static final int CHANNEL_KEY = "CHANNEL";
-    //private static final int CHANNEL_SLOT = "channel";
+    private final String USER_AGENT = "Mozilla/5.0";
+    private String ROKU_URL = "";
+    private int ROKU_PORT = 8060;
 
     String [][] DVR_Data = { {"breaking bad", "001", "user", "how to make meth", "28"},
             {"game of thrones", "002", "system", "dragons and swords", "12"},
@@ -133,6 +137,7 @@ public class SessionSpeechlet implements Speechlet
         // Note: If the session is started with an intent, no welcome message will be rendered;
         // rather, the intent specific response will be returned.
 
+        /*
         if ("GetPlaylist".equals(intentName))
         {
             //return setColorInSession(intent, session);
@@ -144,46 +149,98 @@ public class SessionSpeechlet implements Speechlet
             return playPlaylistTypeinSession(intent, session);
         }
 
-
-        else if("ChangeChannel".equals(intentName))
+*/
+        //would have an else here
+         if("ChangeChannel".equals(intentName))
         {
             return changeChannelinSession(intent, session);
-        }
-
-        else if("GetChannelInfo".equals(intentName))
-        {
-            return getChannelInfoinSession(intent, session);
         }
 
         else if("GetVersion".equals(intentName))
         {
             return getVersioninSession(intent, session);
         }
-        /*
-        else if ("DeletePlayList".equals(intentName))
+
+        else if("ChanUp".equals(intentName))
         {
-            //return getColorFromSession(intent, session)
-            ;
+            return getChanUpinSession(intent, session);
         }
 
-        else if ("GetPlayListInfo".equals(intentName))
+        else if("ChanDown".equals(intentName))
         {
-            //return getColorFromSession(intent, session)
-            ;
+            return getChanDowninSession(intent, session);
         }
 
-        else if ("Play".equals(intentName))
+        else if("TurnOn".equals(intentName))
         {
-            //return getColorFromSession(intent, session)
-            ;
+            return getTurnOninSession(intent, session);
         }
 
-        else if ("Tune".equals(intentName))
+        else if("TurnOff".equals(intentName))
         {
-            //return getColorFromSession(intent, session)
-            ;
+            return getTurnOffinSession(intent, session);
         }
-        */
+
+         else if("Roku".equals(intentName))
+         {
+             return getRokuinSession(intent, session);
+         }
+
+         else if("Home".equals(intentName))
+         {
+             return getRokuHomeinSession(intent, session);
+         }
+
+         else if("Netflix".equals(intentName))
+         {
+             return getRokuNetflixinSession(intent, session);
+         }
+
+         else if("RokuMoveUp".equals(intentName))
+         {
+             return getRokuMoveUpinSession(intent, session);
+         }
+
+         else if("RokuMoveDown".equals(intentName))
+         {
+             return getRokuMoveDowninSession(intent, session);
+         }
+
+         else if("RokuMoveLeft".equals(intentName))
+         {
+             return getRokuMoveLeftinSession(intent, session);
+         }
+
+         else if("RokuMoveRight".equals(intentName))
+         {
+             return getRokuMoveRightinSession(intent, session);
+         }
+
+         else if("RokuSelect".equals(intentName))
+         {
+             return getRokuSelectinSession(intent, session);
+         }
+
+         else if("RokuDirectv".equals(intentName))
+         {
+             return getRokuDirectvinSession(intent, session);
+         }
+
+         else if("GetPlaylist".equals(intentName))
+         {
+             return getPlaylistinSession(intent, session);
+         }
+
+         else if ("GetDescription".equals(intentName))
+         {
+             return getDescriptioninSession(intent, session);
+         }
+
+         else if("PlayFromPlaylist".equals(intentName))
+         {
+             return playFromPlaylistinSession(intent, session);
+         }
+
         else
         {
             throw new SpeechletException("Invalid Intent");
@@ -405,100 +462,6 @@ public class SessionSpeechlet implements Speechlet
         return getSpeechletResponse(speechText, repromptText, true);
     }
 
-    //sixth and a 7/8 function, made by me
-    private SpeechletResponse getChannelInfoinSession(final Intent intent, final Session session)
-    {
-        // Get the slots from the intent.
-        Map<String, Slot> slots = intent.getSlots();
-
-        // Get the color slot from the list of slots.
-        Slot channelSlot = slots.get(CHANNELINFO_SLOT);
-        String channelNum = channelSlot.getValue();
-        String speechText, repromptText;
-
-        String http = "http://";
-        String portCommand = ":8080/tv/tune?major=";
-        String infoCommand = ":8080/tv/getProgInfo?major=";
-        String ip = "192.168.1.134";
-
-        // Check for favorite color and create output to user.
-        if (!channelNum.equals("0"))
-        {
-            CHANNELINFO_KEY = channelNum;
-
-            XMPPTCPConnectionConfiguration.Builder config = XMPPTCPConnectionConfiguration.builder();
-            config.setSecurityMode(ConnectionConfiguration.SecurityMode.disabled);
-            config.setServiceName("ec2-54-152-188-80.compute-1.amazonaws.com");
-            config.setHost("ec2-54-152-188-80.compute-1.amazonaws.com");
-            config.setPort(5222);
-
-            XMPPTCPConnection mConnection = new XMPPTCPConnection(config.build());
-
-            try
-            {
-                try
-                {
-                    try
-                    {
-                        mConnection.connect();
-                        mConnection.login("user2", "alexa1");  //also a login with no parameters //here is where issues
-                    }
-                    catch(XMPPException e)
-                    {
-                        System.out.println("login failed");
-                    }
-                }
-                catch (SmackException e)
-                {
-                    System.out.println("smack exception");
-                }
-            }
-            catch(IOException e)
-            {
-                System.out.println("connect failed");
-            }
-
-            ChatManager chatManager = ChatManager.getInstanceFor(mConnection);
-
-            ChatMessageListener chatListener = new ChatMessageListener() {
-                @Override
-                public void processMessage(Chat chat, Message message)
-                {
-                }
-            };
-
-            Chat chat = chatManager.createChat(userJID, "alexa", chatListener);
-            String fullUrl = http + ip + portCommand + channelNum;
-            try
-            {
-                chat.sendMessage(fullUrl);
-            }
-            catch(SmackException.NotConnectedException e)
-            {
-                System.out.println("Not connected");
-            }
-
-            System.out.println(chat.toString());
-
-            mConnection.disconnect();
-
-            speechText =
-                    String.format("Changing channel to channel %s", channelNum);
-            repromptText = String.format(
-                    "We are now on the channel %s", channelNum);
-
-        }
-
-        else
-        {
-            // Render an error since we don't know what the users favorite color is.
-            speechText = "Error not a valid channel";
-            repromptText =
-                    "Please pick a different channel to watch";
-        }
-        //assume user is now watching, end session
-        return getSpeechletResponse(speechText, repromptText, true);
-    }
 
     private SpeechletResponse getVersioninSession(final Intent intent, final Session session)
     {
@@ -601,11 +564,18 @@ public class SessionSpeechlet implements Speechlet
                         }
                     }
 
-                    if(epName.equals(""))
+                    if(show.equals(""))
+                    {
+                        AspeechText = "Channel " + CHANNELINFO_KEY + "does not exist";
+                        ArepromptText = "Channel " + CHANNELINFO_KEY + "does not exist";
+                    }
+
+                    else if(epName.equals(""))
                     {
                         AspeechText = "Channel " + CHANNELINFO_KEY + " is now playing " + show;
                         ArepromptText = "Channel " + CHANNELINFO_KEY + " is now playing " + show;
                     }
+
                     else
                     {
                         AspeechText = "Channel " + CHANNELINFO_KEY + " is now playing " + show + " episode " + epName;
@@ -655,36 +625,1116 @@ public class SessionSpeechlet implements Speechlet
 
     }
 
-
-
-    //seventh function - mod
-    /**
-     * Creates a {@code SpeechletResponse} for the intent and get the user's favorite color from the
-     * Session.
-     *
-     * @param intent
-     *            intent for the request
-     * @return SpeechletResponse spoken and visual response for the intent
-     */
-    private SpeechletResponse getPlaylistTypeinSession(final Intent intent, final Session session)
+    private SpeechletResponse getChanUpinSession(final Intent intent, final Session session)
     {
-        String speechText;
-        boolean isAskResponse = false;
+        String speechText, repromptText;
 
-        // Get the user's favorite color from the session.
-        String playlistType = (String) session.getAttribute(PLAYLIST_KEY);
+        String http = "http://";
+        String infoCommand = ":8080/tv/getProgInfo?major=";
+        String fullUrl = "http://192.168.1.134:8080/remote/processKey?key=chanup";
 
-        // Check to make sure user's favorite color is set in the session.
-        if (StringUtils.isNotEmpty(playlistType)) {
-            speechText = String.format("The type you searched was %s. Goodbye.", playlistType);
-        } else {
-            // Since the user's favorite color is not set render an error message.
-            speechText =
-                    "I'm not sure what playlist type you searched";
-            isAskResponse = true;
+        XMPPTCPConnectionConfiguration.Builder config = XMPPTCPConnectionConfiguration.builder();
+        config.setSecurityMode(ConnectionConfiguration.SecurityMode.disabled);
+        config.setServiceName("ec2-54-152-188-80.compute-1.amazonaws.com"); //"127.0.0.1" "10.0.2.2"
+        config.setHost("ec2-54-152-188-80.compute-1.amazonaws.com");
+        config.setPort(5222);
+
+        XMPPTCPConnection mConnection = new XMPPTCPConnection(config.build());
+
+        try {
+            try {
+                try {
+                    mConnection.connect();
+                    mConnection.login("user2", "alexa1");  //also a login with no parameters //here is where issues
+                } catch (XMPPException e) {
+                    System.out.println("login failed");
+                }
+            } catch (SmackException e) {
+                System.out.println("smack exception");
+            }
+        } catch (IOException e) {
+            System.out.println("connect failed");
         }
 
-        return getSpeechletResponse(speechText, speechText, isAskResponse);
+        ChatManager chatManager = ChatManager.getInstanceFor(mConnection);
+
+        ChatMessageListener chatListener = new ChatMessageListener()
+        {
+            @Override
+            public void processMessage(Chat chat, Message message)
+            {
+
+            }
+        };
+
+        Chat chat = chatManager.createChat(userJID, "alexa", chatListener);
+        try
+        {
+            chat.sendMessage(fullUrl);
+        }
+
+        catch (SmackException.NotConnectedException e)
+        {
+            System.out.println("Not connected");
+        }
+
+        System.out.println(chat.toString());
+
+        final long start = System.nanoTime();
+        while ((System.nanoTime() - start) / 1000000 < 2000) // do for 20 seconds
+        {
+            try {
+                Thread.sleep(200);
+            }
+            catch(InterruptedException e)
+            {
+                System.out.println("no thread sleep allowed");
+            }
+        }
+        mConnection.disconnect();
+
+        speechText = "Now moving up one channel";
+        repromptText = "We have moved up one channel";
+        return getSpeechletResponse(speechText, repromptText, true);
+
+    }
+
+    private SpeechletResponse getChanDowninSession(final Intent intent, final Session session)
+    {
+        String speechText, repromptText;
+
+        String http = "http://";
+        String infoCommand = ":8080/tv/getProgInfo?major=";
+        String fullUrl = "http://192.168.1.134:8080/remote/processKey?key=chandown";
+
+        XMPPTCPConnectionConfiguration.Builder config = XMPPTCPConnectionConfiguration.builder();
+        config.setSecurityMode(ConnectionConfiguration.SecurityMode.disabled);
+        config.setServiceName("ec2-54-152-188-80.compute-1.amazonaws.com"); //"127.0.0.1" "10.0.2.2"
+        config.setHost("ec2-54-152-188-80.compute-1.amazonaws.com");
+        config.setPort(5222);
+
+        XMPPTCPConnection mConnection = new XMPPTCPConnection(config.build());
+
+        try {
+            try {
+                try {
+                    mConnection.connect();
+                    mConnection.login("user2", "alexa1");  //also a login with no parameters //here is where issues
+                } catch (XMPPException e) {
+                    System.out.println("login failed");
+                }
+            } catch (SmackException e) {
+                System.out.println("smack exception");
+            }
+        } catch (IOException e) {
+            System.out.println("connect failed");
+        }
+
+        ChatManager chatManager = ChatManager.getInstanceFor(mConnection);
+
+        ChatMessageListener chatListener = new ChatMessageListener()
+        {
+            @Override
+            public void processMessage(Chat chat, Message message)
+            {
+
+            }
+        };
+
+        Chat chat = chatManager.createChat(userJID, "alexa", chatListener);
+        try
+        {
+            chat.sendMessage(fullUrl);
+        }
+
+        catch (SmackException.NotConnectedException e)
+        {
+            System.out.println("Not connected");
+        }
+
+        System.out.println(chat.toString());
+
+        final long start = System.nanoTime();
+        while ((System.nanoTime() - start) / 1000000 < 2000) // do for 20 seconds
+        {
+            try {
+                Thread.sleep(200);
+            }
+            catch(InterruptedException e)
+            {
+                System.out.println("no thread sleep allowed");
+            }
+        }
+        mConnection.disconnect();
+
+        speechText = "Now moving down one channel";
+        repromptText = "we have moved down one channel";
+        return getSpeechletResponse(speechText, repromptText, true);
+
+    }
+
+
+    private SpeechletResponse getTurnOffinSession(final Intent intent, final Session session)
+    {
+        String speechText, repromptText;
+
+        String http = "http://";
+        String infoCommand = ":8080/tv/getProgInfo?major=";
+        String fullUrl = "http://192.168.1.134:8080/remote/processKey?key=poweroff";
+
+        XMPPTCPConnectionConfiguration.Builder config = XMPPTCPConnectionConfiguration.builder();
+        config.setSecurityMode(ConnectionConfiguration.SecurityMode.disabled);
+        config.setServiceName("ec2-54-152-188-80.compute-1.amazonaws.com"); //"127.0.0.1" "10.0.2.2"
+        config.setHost("ec2-54-152-188-80.compute-1.amazonaws.com");
+        config.setPort(5222);
+
+        XMPPTCPConnection mConnection = new XMPPTCPConnection(config.build());
+
+        try {
+            try {
+                try {
+                    mConnection.connect();
+                    mConnection.login("user2", "alexa1");  //also a login with no parameters //here is where issues
+                } catch (XMPPException e) {
+                    System.out.println("login failed");
+                }
+            } catch (SmackException e) {
+                System.out.println("smack exception");
+            }
+        } catch (IOException e) {
+            System.out.println("connect failed");
+        }
+
+        ChatManager chatManager = ChatManager.getInstanceFor(mConnection);
+
+        ChatMessageListener chatListener = new ChatMessageListener()
+        {
+            @Override
+            public void processMessage(Chat chat, Message message)
+            {
+
+            }
+        };
+
+        Chat chat = chatManager.createChat(userJID, "alexa", chatListener);
+        try
+        {
+            chat.sendMessage(fullUrl);
+        }
+
+        catch (SmackException.NotConnectedException e)
+        {
+            System.out.println("Not connected");
+        }
+
+        System.out.println(chat.toString());
+
+        final long start = System.nanoTime();
+        while ((System.nanoTime() - start) / 1000000 < 2000) // do for 20 seconds
+        {
+            try {
+                Thread.sleep(200);
+            }
+            catch(InterruptedException e)
+            {
+                System.out.println("no thread sleep allowed");
+            }
+        }
+        mConnection.disconnect();
+
+        speechText = "Now turning off the set top box";
+        repromptText = "We have turned off the set top box";
+        return getSpeechletResponse(speechText, repromptText, true);
+
+    }
+
+
+    private SpeechletResponse getTurnOninSession(final Intent intent, final Session session)
+    {
+        String speechText, repromptText;
+
+        String http = "http://";
+        String infoCommand = ":8080/tv/getProgInfo?major=";
+        String fullUrl = "http://192.168.1.134:8080/remote/processKey?key=poweron";
+
+        XMPPTCPConnectionConfiguration.Builder config = XMPPTCPConnectionConfiguration.builder();
+        config.setSecurityMode(ConnectionConfiguration.SecurityMode.disabled);
+        config.setServiceName("ec2-54-152-188-80.compute-1.amazonaws.com"); //"127.0.0.1" "10.0.2.2"
+        config.setHost("ec2-54-152-188-80.compute-1.amazonaws.com");
+        config.setPort(5222);
+
+        XMPPTCPConnection mConnection = new XMPPTCPConnection(config.build());
+
+        try {
+            try {
+                try {
+                    mConnection.connect();
+                    mConnection.login("user2", "alexa1");  //also a login with no parameters //here is where issues
+                } catch (XMPPException e) {
+                    System.out.println("login failed");
+                }
+            } catch (SmackException e) {
+                System.out.println("smack exception");
+            }
+        } catch (IOException e) {
+            System.out.println("connect failed");
+        }
+
+        ChatManager chatManager = ChatManager.getInstanceFor(mConnection);
+
+        ChatMessageListener chatListener = new ChatMessageListener()
+        {
+            @Override
+            public void processMessage(Chat chat, Message message)
+            {
+
+            }
+        };
+
+        Chat chat = chatManager.createChat(userJID, "alexa", chatListener);
+        try
+        {
+            chat.sendMessage(fullUrl);
+        }
+
+        catch (SmackException.NotConnectedException e)
+        {
+            System.out.println("Not connected");
+        }
+
+        System.out.println(chat.toString());
+
+        final long start = System.nanoTime();
+        while ((System.nanoTime() - start) / 1000000 < 2000) // do for 20 seconds
+        {
+            try {
+                Thread.sleep(200);
+            }
+            catch(InterruptedException e)
+            {
+                System.out.println("no thread sleep allowed");
+            }
+        }
+        mConnection.disconnect();
+
+        speechText = "Now turning the set top box on";
+        repromptText = "We have turned on the set top box";
+        return getSpeechletResponse(speechText, repromptText, true);
+
+    }
+
+    private SpeechletResponse getRokuinSession(final Intent intent, final Session session)
+    {
+
+        String speechText, repromptText;
+        String aSpeechText = "";
+        String aRepromptText = "";
+        XMPPTCPConnectionConfiguration.Builder config = XMPPTCPConnectionConfiguration.builder();
+        config.setSecurityMode(ConnectionConfiguration.SecurityMode.disabled);
+        config.setServiceName("ec2-54-152-188-80.compute-1.amazonaws.com"); //"127.0.0.1" "10.0.2.2"
+        config.setHost("ec2-54-152-188-80.compute-1.amazonaws.com");
+        config.setPort(5222);
+
+        XMPPTCPConnection mConnection = new XMPPTCPConnection(config.build());
+
+        try {
+            try {
+                try {
+                    mConnection.connect();
+                    mConnection.login("user2", "alexa1");  //also a login with no parameters //here is where issues
+                } catch (XMPPException e) {
+                    System.out.println("login failed");
+                }
+            } catch (SmackException e) {
+                System.out.println("smack exception");
+            }
+        } catch (IOException e) {
+            System.out.println("connect failed");
+        }
+
+        ChatManager chatManager = ChatManager.getInstanceFor(mConnection);
+
+        ChatMessageListener chatListener = new ChatMessageListener()
+        {
+            @Override
+            public void processMessage(Chat chat, Message message)
+            {
+                if(!message.getBody().equals(""))
+                {
+                    ROKU_URL = message.getBody();
+                    AspeechText = "I have found your roku, you can now issue roku commands";
+                    ArepromptText = "I have found your roku, you can now issue roku commands";
+                }
+            }
+        };
+
+        Chat chat = chatManager.createChat(userJID, "alexa", chatListener);
+        try
+        {
+            chat.sendMessage("roku");
+        }
+
+        catch (SmackException.NotConnectedException e)
+        {
+            System.out.println("Not connected");
+        }
+
+        final long start = System.nanoTime();
+        while ((System.nanoTime() - start) / 1000000 < 2000) // do for 20 seconds
+        {
+            try {
+                Thread.sleep(200);
+            }
+            catch(InterruptedException e)
+            {
+                System.out.println("no thread sleep allowed");
+            }
+        }
+        mConnection.disconnect();
+
+        if(AspeechText.equals(""))
+        {
+            speechText = "I was not able to find your roku, please make sure it is connected to the network";
+            repromptText = "I was not able to find your roku, please make sure it is connected to the network";
+            return getSpeechletResponse(speechText, repromptText, true);
+        }
+        else
+        {
+            return getSpeechletResponse(AspeechText , ArepromptText, true);
+        }
+    }
+
+    private SpeechletResponse getRokuHomeinSession(final Intent intent, final Session session)
+    {
+        String speechText, repromptText;
+
+        XMPPTCPConnectionConfiguration.Builder config = XMPPTCPConnectionConfiguration.builder();
+        config.setSecurityMode(ConnectionConfiguration.SecurityMode.disabled);
+        config.setServiceName("ec2-54-152-188-80.compute-1.amazonaws.com"); //"127.0.0.1" "10.0.2.2"
+        config.setHost("ec2-54-152-188-80.compute-1.amazonaws.com");
+        config.setPort(5222);
+
+        XMPPTCPConnection mConnection = new XMPPTCPConnection(config.build());
+
+        try {
+            try {
+                try {
+                    mConnection.connect();
+                    mConnection.login("user2", "alexa1");  //also a login with no parameters //here is where issues
+                } catch (XMPPException e) {
+                    System.out.println("login failed");
+                }
+            } catch (SmackException e) {
+                System.out.println("smack exception");
+            }
+        } catch (IOException e) {
+            System.out.println("connect failed");
+        }
+
+        ChatManager chatManager = ChatManager.getInstanceFor(mConnection);
+
+        ChatMessageListener chatListener = new ChatMessageListener()
+        {
+            @Override
+            public void processMessage(Chat chat, Message message)
+            {
+            }
+        };
+
+        Chat chat = chatManager.createChat(userJID, "alexa", chatListener);
+        try
+        {
+            chat.sendMessage("home");
+        }
+
+        catch (SmackException.NotConnectedException e)
+        {
+            System.out.println("Not connected");
+        }
+
+        mConnection.disconnect();
+
+        speechText = "Now tuning to roku home menu";
+        repromptText = "We have tuned to the roku home menu";
+        return getSpeechletResponse(speechText, repromptText, true);
+
+    }
+
+    private SpeechletResponse getRokuNetflixinSession(final Intent intent, final Session session)
+    {
+        String speechText, repromptText;
+
+        XMPPTCPConnectionConfiguration.Builder config = XMPPTCPConnectionConfiguration.builder();
+        config.setSecurityMode(ConnectionConfiguration.SecurityMode.disabled);
+        config.setServiceName("ec2-54-152-188-80.compute-1.amazonaws.com"); //"127.0.0.1" "10.0.2.2"
+        config.setHost("ec2-54-152-188-80.compute-1.amazonaws.com");
+        config.setPort(5222);
+
+        XMPPTCPConnection mConnection = new XMPPTCPConnection(config.build());
+
+        try {
+            try {
+                try {
+                    mConnection.connect();
+                    mConnection.login("user2", "alexa1");  //also a login with no parameters //here is where issues
+                } catch (XMPPException e) {
+                    System.out.println("login failed");
+                }
+            } catch (SmackException e) {
+                System.out.println("smack exception");
+            }
+        } catch (IOException e) {
+            System.out.println("connect failed");
+        }
+
+        ChatManager chatManager = ChatManager.getInstanceFor(mConnection);
+
+        ChatMessageListener chatListener = new ChatMessageListener()
+        {
+            @Override
+            public void processMessage(Chat chat, Message message)
+            {
+            }
+        };
+
+        Chat chat = chatManager.createChat(userJID, "alexa", chatListener);
+        try
+        {
+            chat.sendMessage("netflix");
+        }
+
+        catch (SmackException.NotConnectedException e)
+        {
+            System.out.println("Not connected");
+        }
+
+        mConnection.disconnect();
+
+        speechText = "Now tuning to Netflix";
+        repromptText = "We have tuned to netflix";
+        return getSpeechletResponse(speechText, repromptText, true);
+
+    }
+
+    private SpeechletResponse getRokuMoveUpinSession(final Intent intent, final Session session)
+    {
+        String speechText, repromptText;
+
+        XMPPTCPConnectionConfiguration.Builder config = XMPPTCPConnectionConfiguration.builder();
+        config.setSecurityMode(ConnectionConfiguration.SecurityMode.disabled);
+        config.setServiceName("ec2-54-152-188-80.compute-1.amazonaws.com"); //"127.0.0.1" "10.0.2.2"
+        config.setHost("ec2-54-152-188-80.compute-1.amazonaws.com");
+        config.setPort(5222);
+
+        XMPPTCPConnection mConnection = new XMPPTCPConnection(config.build());
+
+        try {
+            try {
+                try {
+                    mConnection.connect();
+                    mConnection.login("user2", "alexa1");  //also a login with no parameters //here is where issues
+                } catch (XMPPException e) {
+                    System.out.println("login failed");
+                }
+            } catch (SmackException e) {
+                System.out.println("smack exception");
+            }
+        } catch (IOException e) {
+            System.out.println("connect failed");
+        }
+
+        ChatManager chatManager = ChatManager.getInstanceFor(mConnection);
+
+        ChatMessageListener chatListener = new ChatMessageListener()
+        {
+            @Override
+            public void processMessage(Chat chat, Message message)
+            {
+            }
+        };
+
+        Chat chat = chatManager.createChat(userJID, "alexa", chatListener);
+        try
+        {
+            chat.sendMessage("up");
+        }
+
+        catch (SmackException.NotConnectedException e)
+        {
+            System.out.println("Not connected");
+        }
+
+        mConnection.disconnect();
+
+        speechText = "Moving one up on the Roku menu";
+        repromptText = "We have moved the cursor up one on the roku menu";
+        return getSpeechletResponse(speechText, repromptText, true);
+
+    }
+
+    private SpeechletResponse getRokuMoveDowninSession(final Intent intent, final Session session)
+    {
+        String speechText, repromptText;
+
+        XMPPTCPConnectionConfiguration.Builder config = XMPPTCPConnectionConfiguration.builder();
+        config.setSecurityMode(ConnectionConfiguration.SecurityMode.disabled);
+        config.setServiceName("ec2-54-152-188-80.compute-1.amazonaws.com"); //"127.0.0.1" "10.0.2.2"
+        config.setHost("ec2-54-152-188-80.compute-1.amazonaws.com");
+        config.setPort(5222);
+
+        XMPPTCPConnection mConnection = new XMPPTCPConnection(config.build());
+
+        try {
+            try {
+                try {
+                    mConnection.connect();
+                    mConnection.login("user2", "alexa1");  //also a login with no parameters //here is where issues
+                } catch (XMPPException e) {
+                    System.out.println("login failed");
+                }
+            } catch (SmackException e) {
+                System.out.println("smack exception");
+            }
+        } catch (IOException e) {
+            System.out.println("connect failed");
+        }
+
+        ChatManager chatManager = ChatManager.getInstanceFor(mConnection);
+
+        ChatMessageListener chatListener = new ChatMessageListener()
+        {
+            @Override
+            public void processMessage(Chat chat, Message message)
+            {
+            }
+        };
+
+        Chat chat = chatManager.createChat(userJID, "alexa", chatListener);
+        try
+        {
+            chat.sendMessage("down");
+        }
+
+        catch (SmackException.NotConnectedException e)
+        {
+            System.out.println("Not connected");
+        }
+
+        mConnection.disconnect();
+
+        speechText = "Moving one down on the Roku menu";
+        repromptText = "We have moved the cursor down one on the roku menu";
+        return getSpeechletResponse(speechText, repromptText, true);
+
+    }
+
+    private SpeechletResponse getRokuMoveLeftinSession(final Intent intent, final Session session)
+    {
+        String speechText, repromptText;
+
+        XMPPTCPConnectionConfiguration.Builder config = XMPPTCPConnectionConfiguration.builder();
+        config.setSecurityMode(ConnectionConfiguration.SecurityMode.disabled);
+        config.setServiceName("ec2-54-152-188-80.compute-1.amazonaws.com"); //"127.0.0.1" "10.0.2.2"
+        config.setHost("ec2-54-152-188-80.compute-1.amazonaws.com");
+        config.setPort(5222);
+
+        XMPPTCPConnection mConnection = new XMPPTCPConnection(config.build());
+
+        try {
+            try {
+                try {
+                    mConnection.connect();
+                    mConnection.login("user2", "alexa1");  //also a login with no parameters //here is where issues
+                } catch (XMPPException e) {
+                    System.out.println("login failed");
+                }
+            } catch (SmackException e) {
+                System.out.println("smack exception");
+            }
+        } catch (IOException e) {
+            System.out.println("connect failed");
+        }
+
+        ChatManager chatManager = ChatManager.getInstanceFor(mConnection);
+
+        ChatMessageListener chatListener = new ChatMessageListener()
+        {
+            @Override
+            public void processMessage(Chat chat, Message message)
+            {
+            }
+        };
+
+        Chat chat = chatManager.createChat(userJID, "alexa", chatListener);
+        try
+        {
+            chat.sendMessage("left");
+        }
+
+        catch (SmackException.NotConnectedException e)
+        {
+            System.out.println("Not connected");
+        }
+
+        mConnection.disconnect();
+
+        speechText = "Moving left on the Roku menu";
+        repromptText = "We have moved the cursor left on the roku menu";
+        return getSpeechletResponse(speechText, repromptText, true);
+
+    }
+
+    private SpeechletResponse getRokuMoveRightinSession(final Intent intent, final Session session)
+    {
+        String speechText, repromptText;
+
+        XMPPTCPConnectionConfiguration.Builder config = XMPPTCPConnectionConfiguration.builder();
+        config.setSecurityMode(ConnectionConfiguration.SecurityMode.disabled);
+        config.setServiceName("ec2-54-152-188-80.compute-1.amazonaws.com"); //"127.0.0.1" "10.0.2.2"
+        config.setHost("ec2-54-152-188-80.compute-1.amazonaws.com");
+        config.setPort(5222);
+
+        XMPPTCPConnection mConnection = new XMPPTCPConnection(config.build());
+
+        try {
+            try {
+                try {
+                    mConnection.connect();
+                    mConnection.login("user2", "alexa1");  //also a login with no parameters //here is where issues
+                } catch (XMPPException e) {
+                    System.out.println("login failed");
+                }
+            } catch (SmackException e) {
+                System.out.println("smack exception");
+            }
+        } catch (IOException e) {
+            System.out.println("connect failed");
+        }
+
+        ChatManager chatManager = ChatManager.getInstanceFor(mConnection);
+
+        ChatMessageListener chatListener = new ChatMessageListener()
+        {
+            @Override
+            public void processMessage(Chat chat, Message message)
+            {
+            }
+        };
+
+        Chat chat = chatManager.createChat(userJID, "alexa", chatListener);
+        try
+        {
+            chat.sendMessage("right");
+        }
+
+        catch (SmackException.NotConnectedException e)
+        {
+            System.out.println("Not connected");
+        }
+
+        mConnection.disconnect();
+
+        speechText = "Moving right on the Roku menu";
+        repromptText = "We have moved the cursor right on the roku menu";
+        return getSpeechletResponse(speechText, repromptText, true);
+
+    }
+
+    private SpeechletResponse getRokuSelectinSession(final Intent intent, final Session session)
+    {
+        String speechText, repromptText;
+
+        XMPPTCPConnectionConfiguration.Builder config = XMPPTCPConnectionConfiguration.builder();
+        config.setSecurityMode(ConnectionConfiguration.SecurityMode.disabled);
+        config.setServiceName("ec2-54-152-188-80.compute-1.amazonaws.com"); //"127.0.0.1" "10.0.2.2"
+        config.setHost("ec2-54-152-188-80.compute-1.amazonaws.com");
+        config.setPort(5222);
+
+        XMPPTCPConnection mConnection = new XMPPTCPConnection(config.build());
+
+        try {
+            try {
+                try {
+                    mConnection.connect();
+                    mConnection.login("user2", "alexa1");  //also a login with no parameters //here is where issues
+                } catch (XMPPException e) {
+                    System.out.println("login failed");
+                }
+            } catch (SmackException e) {
+                System.out.println("smack exception");
+            }
+        } catch (IOException e) {
+            System.out.println("connect failed");
+        }
+
+        ChatManager chatManager = ChatManager.getInstanceFor(mConnection);
+
+        ChatMessageListener chatListener = new ChatMessageListener()
+        {
+            @Override
+            public void processMessage(Chat chat, Message message)
+            {
+            }
+        };
+
+        Chat chat = chatManager.createChat(userJID, "alexa", chatListener);
+        try
+        {
+            chat.sendMessage("select");
+        }
+
+        catch (SmackException.NotConnectedException e)
+        {
+            System.out.println("Not connected");
+        }
+
+        mConnection.disconnect();
+
+        speechText = "Now selecting";
+        repromptText = "We have selected on the roku menu";
+        return getSpeechletResponse(speechText, repromptText, true);
+
+    }
+
+    private SpeechletResponse getRokuDirectvinSession(final Intent intent, final Session session)
+    {
+        String speechText, repromptText;
+
+        XMPPTCPConnectionConfiguration.Builder config = XMPPTCPConnectionConfiguration.builder();
+        config.setSecurityMode(ConnectionConfiguration.SecurityMode.disabled);
+        config.setServiceName("ec2-54-152-188-80.compute-1.amazonaws.com"); //"127.0.0.1" "10.0.2.2"
+        config.setHost("ec2-54-152-188-80.compute-1.amazonaws.com");
+        config.setPort(5222);
+
+        XMPPTCPConnection mConnection = new XMPPTCPConnection(config.build());
+
+        try {
+            try {
+                try {
+                    mConnection.connect();
+                    mConnection.login("user2", "alexa1");  //also a login with no parameters //here is where issues
+                } catch (XMPPException e) {
+                    System.out.println("login failed");
+                }
+            } catch (SmackException e) {
+                System.out.println("smack exception");
+            }
+        } catch (IOException e) {
+            System.out.println("connect failed");
+        }
+
+        ChatManager chatManager = ChatManager.getInstanceFor(mConnection);
+
+        ChatMessageListener chatListener = new ChatMessageListener()
+        {
+            @Override
+            public void processMessage(Chat chat, Message message)
+            {
+            }
+        };
+
+        Chat chat = chatManager.createChat(userJID, "alexa", chatListener);
+        try
+        {
+            chat.sendMessage("directv");
+        }
+
+        catch (SmackException.NotConnectedException e)
+        {
+            System.out.println("Not connected");
+        }
+
+        mConnection.disconnect();
+
+        speechText = "Now launching the directv app";
+        repromptText = "We have launched the directv app";
+        return getSpeechletResponse(speechText, repromptText, true);
+
+    }
+
+    private SpeechletResponse getPlaylistinSession(final Intent intent, final Session session)
+    {
+
+        String speechText, repromptText;
+        String aSpeechText = "";
+        String aRepromptText = "";
+        XMPPTCPConnectionConfiguration.Builder config = XMPPTCPConnectionConfiguration.builder();
+        config.setSecurityMode(ConnectionConfiguration.SecurityMode.disabled);
+        config.setServiceName("ec2-54-152-188-80.compute-1.amazonaws.com"); //"127.0.0.1" "10.0.2.2"
+        config.setHost("ec2-54-152-188-80.compute-1.amazonaws.com");
+        config.setPort(5222);
+
+        XMPPTCPConnection mConnection = new XMPPTCPConnection(config.build());
+
+        try {
+            try {
+                try {
+                    mConnection.connect();
+                    mConnection.login("user2", "alexa1");  //also a login with no parameters //here is where issues
+                } catch (XMPPException e) {
+                    System.out.println("login failed");
+                }
+            } catch (SmackException e) {
+                System.out.println("smack exception");
+            }
+        } catch (IOException e) {
+            System.out.println("connect failed");
+        }
+
+        ChatManager chatManager = ChatManager.getInstanceFor(mConnection);
+
+        ChatMessageListener chatListener = new ChatMessageListener()
+        {
+            @Override
+            public void processMessage(Chat chat, Message message)
+            {
+                    AspeechText = "The current available playlists are " + message.getBody();
+                    ArepromptText = "The current available playlists are " + message.getBody();
+            }
+        };
+
+        Chat chat = chatManager.createChat(userJID, "alexa", chatListener);
+        try
+        {
+            chat.sendMessage("getPlaylist");
+        }
+
+        catch (SmackException.NotConnectedException e)
+        {
+            System.out.println("Not connected");
+        }
+
+        final long start = System.nanoTime();
+        while ((System.nanoTime() - start) / 1000000 < 2000) // do for 20 seconds
+        {
+            try {
+                Thread.sleep(200);
+            }
+            catch(InterruptedException e)
+            {
+                System.out.println("no thread sleep allowed");
+            }
+        }
+        mConnection.disconnect();
+
+        if(AspeechText.equals(""))
+        {
+            speechText = "I was not able to find your playlists, please make sure you are connected to the network";
+            repromptText = "I was not able to find your playlists, please make you are connected to the network";
+            return getSpeechletResponse(speechText, repromptText, true);
+        }
+        else
+        {
+            return getSpeechletResponse(AspeechText , ArepromptText, true);
+        }
+    }
+
+    private SpeechletResponse getDescriptioninSession(final Intent intent, final Session session)
+    {
+        // Get the slots from the intent.
+        Map<String, Slot> slots = intent.getSlots();
+
+        // Get the color slot from the list of slots.
+        Slot dvrSlot = slots.get(DVR_SLOT);
+        String dvr = dvrSlot.getValue();
+
+        String speechText, repromptText;
+        String aSpeechText = "";
+        String aRepromptText = "";
+        XMPPTCPConnectionConfiguration.Builder config = XMPPTCPConnectionConfiguration.builder();
+        config.setSecurityMode(ConnectionConfiguration.SecurityMode.disabled);
+        config.setServiceName("ec2-54-152-188-80.compute-1.amazonaws.com"); //"127.0.0.1" "10.0.2.2"
+        config.setHost("ec2-54-152-188-80.compute-1.amazonaws.com");
+        config.setPort(5222);
+
+        XMPPTCPConnection mConnection = new XMPPTCPConnection(config.build());
+
+        try {
+            try {
+                try {
+                    mConnection.connect();
+                    mConnection.login("user2", "alexa1");  //also a login with no parameters //here is where issues
+                } catch (XMPPException e) {
+                    System.out.println("login failed");
+                }
+            } catch (SmackException e) {
+                System.out.println("smack exception");
+            }
+        } catch (IOException e) {
+            System.out.println("connect failed");
+        }
+
+        ChatManager chatManager = ChatManager.getInstanceFor(mConnection);
+
+        ChatMessageListener chatListener = new ChatMessageListener()
+        {
+            @Override
+            public void processMessage(Chat chat, Message message)
+            {
+                AspeechText = "Here is the description " + message.getBody();
+                ArepromptText = "Here is the description " + message.getBody();
+            }
+        };
+
+        Chat chat = chatManager.createChat(userJID, "alexa", chatListener);
+        if(dvr.equals("Jurassic world"))
+        {
+            try
+            {
+                chat.sendMessage("jurassic");
+            }
+            catch (SmackException.NotConnectedException e)
+            {
+                System.out.println("Not connected");
+            }
+        }
+        else if (dvr.equals("1st take"))
+        {
+            try
+            {
+                chat.sendMessage("first");
+            }
+            catch (SmackException.NotConnectedException e)
+            {
+                System.out.println("Not connected");
+            }
+        }
+
+        else
+        {
+            try
+            {
+                chat.sendMessage(dvr);
+            }
+            catch (SmackException.NotConnectedException e)
+            {
+                System.out.println("Not connected");
+            }
+        }
+
+        final long start = System.nanoTime();
+        while ((System.nanoTime() - start) / 1000000 < 2000) // do for 20 seconds
+        {
+            try {
+                Thread.sleep(200);
+            }
+            catch(InterruptedException e)
+            {
+                System.out.println("no thread sleep allowed");
+            }
+        }
+        mConnection.disconnect();
+
+        if(AspeechText.equals(""))
+        {
+            speechText = "I was not able to find your requested show, please make sure you said the correct name";
+            repromptText = "I was not able to find your playlists, please make sure you said the correct name";
+            return getSpeechletResponse(speechText, repromptText, true);
+        }
+        else
+        {
+            return getSpeechletResponse(AspeechText , ArepromptText, true);
+        }
+    }
+
+    private SpeechletResponse playFromPlaylistinSession(final Intent intent, final Session session)
+    {
+        // Get the slots from the intent.
+        Map<String, Slot> slots = intent.getSlots();
+
+        // Get the color slot from the list of slots.
+        Slot dvrPlaySlot = slots.get(DVRPLAY_SLOT);
+        String dvr = dvrPlaySlot.getValue();
+
+        String speechText, repromptText;
+        String aSpeechText = "";
+        String aRepromptText = "";
+        XMPPTCPConnectionConfiguration.Builder config = XMPPTCPConnectionConfiguration.builder();
+        config.setSecurityMode(ConnectionConfiguration.SecurityMode.disabled);
+        config.setServiceName("ec2-54-152-188-80.compute-1.amazonaws.com"); //"127.0.0.1" "10.0.2.2"
+        config.setHost("ec2-54-152-188-80.compute-1.amazonaws.com");
+        config.setPort(5222);
+
+        XMPPTCPConnection mConnection = new XMPPTCPConnection(config.build());
+
+        try {
+            try {
+                try {
+                    mConnection.connect();
+                    mConnection.login("user2", "alexa1");  //also a login with no parameters //here is where issues
+                } catch (XMPPException e) {
+                    System.out.println("login failed");
+                }
+            } catch (SmackException e) {
+                System.out.println("smack exception");
+            }
+        } catch (IOException e) {
+            System.out.println("connect failed");
+        }
+
+        ChatManager chatManager = ChatManager.getInstanceFor(mConnection);
+
+        ChatMessageListener chatListener = new ChatMessageListener()
+        {
+            @Override
+            public void processMessage(Chat chat, Message message)
+            {
+            }
+        };
+
+        Chat chat = chatManager.createChat(userJID, "alexa", chatListener);
+        if(dvr.equals("Jurassic world"))
+        {
+            try
+            {
+                chat.sendMessage("jurassicPlay");
+            }
+            catch (SmackException.NotConnectedException e)
+            {
+                System.out.println("Not connected");
+            }
+        }
+        else if (dvr.equals("1st take"))
+        {
+            try
+            {
+                chat.sendMessage("firstPlay");
+            }
+            catch (SmackException.NotConnectedException e)
+            {
+                System.out.println("Not connected");
+            }
+        }
+
+        else
+        {
+            try
+            {
+                chat.sendMessage(dvr);
+            }
+            catch (SmackException.NotConnectedException e)
+            {
+                System.out.println("Not connected");
+            }
+        }
+
+        final long start = System.nanoTime();
+        while ((System.nanoTime() - start) / 1000000 < 2000) // do for 20 seconds
+        {
+            try {
+                Thread.sleep(200);
+            }
+            catch(InterruptedException e)
+            {
+                System.out.println("no thread sleep allowed");
+            }
+        }
+        mConnection.disconnect();
+
+            speechText = "Now playing your selection";
+            repromptText = "Now playing your selection";
+            return getSpeechletResponse(speechText, repromptText, true);
+
     }
 
     //eighth function - no mod
