@@ -433,7 +433,7 @@ public class ExperimentalReceiver
                 if (playlist.equals("title")) {
                     channelAns = parser3.next();
                     show = parser3.getString();
-                    titles = titles + " " + show;
+                    titles = titles + ", " + show;
                 }
 
                 channelAns = parser3.next();
